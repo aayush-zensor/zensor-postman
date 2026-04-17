@@ -1,0 +1,5552 @@
+{
+	"info": {
+		"_postman_id": "52441606-0daa9fd1-4119-4704-998b-e84de7ccaaef",
+		"name": "Zensor Backend API",
+		"description": "Complete API reference for the Zensor Backend — documented for frontend developers.\n\n## Authentication\n\nMost endpoints require a **Bearer token** in the `Authorization` header:\n```\nAuthorization: Bearer {{authToken}}\n```\n\nAfter logging in (via `/api/auth/login` or Google OAuth), set the returned `access_token` as the `{{authToken}}` collection variable.\n\n## Base URL\n\nSet `{{baseUrl}}` to your environment:\n- **Local:** `http://localhost:8000`\n- **Staging:** `https://api-staging.zensor.io`\n- **Production:** `https://api.zensor.io`\n\n## Token Refresh\n\nWhen any request returns **401 Unauthorized**, call `POST /api/auth/refresh` (the browser automatically sends the HttpOnly `refresh_token` cookie). Update `{{authToken}}` with the new token and retry.\n\n## Response Format\n\n```json\n// Success\n{ \"success\": true, \"data\": { ... } }\n\n// Error\n{ \"error\": { \"message\": \"Human-readable error description\" } }\n```\n\n## Roles\n\n| Role | Description |\n|------|-------------|\n| `super_admin` | Full system access, admin panel |\n| `client_admin` | Owns an org, manages members & properties |\n| `client_member` | Access to assigned properties only |\n",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Get Google OAuth URL",
+					"id": "52441606-0164b9f1-42c2-4c21-ad96-0044a61dc0d2",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/oauth-url",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"oauth-url"
+							]
+						},
+						"description": "**No authentication required.**\n\nReturns the Google OAuth2 URL to redirect the user to for sign-in.\n\n**Frontend flow:**\n1. Call this endpoint to get `url` + `state`\n2. Store `state` in `sessionStorage`\n3. Redirect the browser to `url`\n4. After Google redirects back, verify `state` matches and call `/api/auth/callback`\n\n**Returns:** `{ url, state }`"
+					},
+					"response": [
+						{
+							"id": "52441606-30f998b5-42f2-4967-ab85-07ff1c68bc3e",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/oauth-url",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"oauth-url"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"url\": \"https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_ID&redirect_uri=https://api.zensor.io/api/auth/callback&scope=email+profile&state=abc123&response_type=code\",\n    \"state\": \"abc123def456\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Google OAuth Callback",
+					"id": "52441606-c5e93176-195e-4c89-a6de-f302832cc551",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/callback?code=4/0AX4XfWi_example_code&state=abc123def456",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "4/0AX4XfWi_example_code",
+									"description": "Authorization code from Google"
+								},
+								{
+									"key": "state",
+									"value": "abc123def456",
+									"description": "State value returned by /oauth-url"
+								}
+							]
+						},
+						"description": "**No authentication required.**\n\nHandles the Google OAuth redirect. Google appends `code` and `state` as query params.\n\n**What happens:**\n- Backend exchanges `code` for tokens with Google\n- Sets `access_token` + `refresh_token` as HttpOnly cookies\n- Returns `access_token` and `user` in the response body\n\n**Frontend:** Store `access_token` in memory (Zustand/context — NOT localStorage) and include it as `Authorization: Bearer <token>` in all subsequent requests.\n\n**Query params:** `code` (required), `state` (required — must match what you stored)"
+					},
+					"response": [
+						{
+							"id": "52441606-cb2c1530-86b5-496d-8b61-2b334b0cc974",
+							"name": "200 Success — Google Login",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/callback",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"callback"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE3NTAwMDAwMDB9.signature_placeholder\",\n    \"user\": {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"email\": \"john.doe@example.com\",\n      \"first_name\": \"John\",\n      \"last_name\": \"Doe\",\n      \"role\": \"client_admin\",\n      \"is_verified\": true,\n      \"company_name\": \"Acme Corp\",\n      \"job_role\": \"CEO\",\n      \"website\": \"https://acme.com\",\n      \"country_code\": \"US\",\n      \"phone_number\": \"+14155552671\",\n      \"org_name\": \"Acme Corp\",\n      \"connected_google_accounts_count\": 1,\n      \"profile_image_url\": \"https://s3.example.com/profiles/john.jpg\",\n      \"company_logo_url\": \"https://s3.example.com/logos/acme.png\",\n      \"created_at\": \"2025-01-15T10:30:00Z\"\n    }\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Login",
+					"id": "52441606-d615430d-4f4d-4e61-91e5-95dfe24214f0",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "**No authentication required.**\n\nAuthenticate with email and password.\n\n**On success:**\n- Returns `access_token` (short-lived JWT) + full `user` object\n- Sets `refresh_token` HttpOnly cookie (long-lived, sent automatically by browser)\n\n**Frontend flow:**\n1. POST `{ email, password }`\n2. Store `access_token` in memory (Zustand/Redux — NOT localStorage)\n3. Add `Authorization: Bearer <access_token>` to all subsequent API calls\n4. When you get a 401, call `/api/auth/refresh` to get a new token"
+					},
+					"response": [
+						{
+							"id": "52441606-9eb510d9-9acc-42f1-ac7f-c314e025d6f9",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/login",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE3NTAwMDAwMDB9.signature_placeholder\",\n    \"user\": {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"email\": \"john.doe@example.com\",\n      \"first_name\": \"John\",\n      \"last_name\": \"Doe\",\n      \"role\": \"client_admin\",\n      \"is_verified\": true,\n      \"company_name\": \"Acme Corp\",\n      \"job_role\": \"CEO\",\n      \"website\": \"https://acme.com\",\n      \"country_code\": \"US\",\n      \"phone_number\": \"+14155552671\",\n      \"org_name\": \"Acme Corp\",\n      \"connected_google_accounts_count\": 1,\n      \"profile_image_url\": \"https://s3.example.com/profiles/john.jpg\",\n      \"company_logo_url\": \"https://s3.example.com/logos/acme.png\",\n      \"created_at\": \"2025-01-15T10:30:00Z\"\n    }\n  }\n}"
+						},
+						{
+							"id": "52441606-1df9534a-dea2-46c4-9e59-5fafa1d8cefc",
+							"name": "401 Invalid Credentials",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"wrongpassword\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/login",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"login"
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Invalid email or password\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Register",
+					"id": "52441606-52ac9c48-ef1a-430e-a3e2-467ed2afcc26",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirm_password\": \"SecurePass123!\",\n  \"referral_code\": \"ACME2024\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "**No authentication required.**\n\nCreate a new user account with email and password.\n\n**Required fields:** `first_name`, `last_name`, `email`, `password`, `confirm_password`\n**Optional:** `referral_code` — if provided, links the account to the inviting org\n\n**After registration:**\n- A verification email is sent automatically\n- `email_verified` will be `false` until the user clicks the link\n- If `referral_code` matched an org domain, `domain_match: true` is returned\n\n**Returns 201** with `{ user_id, email_verified, domain_match? }`"
+					},
+					"response": [
+						{
+							"id": "52441606-445e2319-716e-4f07-a450-9f571404e1fd",
+							"name": "201 Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirm_password\": \"SecurePass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/register",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"register"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"user_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"email_verified\": false\n  }\n}"
+						},
+						{
+							"id": "52441606-97ea7c22-5e5a-4514-8c75-6d4321c2150a",
+							"name": "400 Email Already Registered",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"confirm_password\": \"SecurePass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/register",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"register"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Email already registered\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Verify Email",
+					"id": "52441606-723a7772-0cea-457d-96e8-cbf9df29cbf6",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/verify-email?token=eyJhbGciOiJIUzI1NiJ9.verify_token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"verify-email"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJIUzI1NiJ9.verify_token",
+									"description": "One-time token from the verification email"
+								}
+							]
+						},
+						"description": "**No authentication required.**\n\nActivate the user's email address using the one-time token sent in the verification email.\n\n**Typical usage:** This URL is the link target in the verification email. After calling this, redirect the user to login.\n\n**Query param:** `token` (required) — from the verification email"
+					},
+					"response": [
+						{
+							"id": "52441606-f46d2690-0114-4eae-8b97-a014a4b64ec7",
+							"name": "200 Email Verified",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/verify-email",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"verify-email"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Email verified successfully\"\n  }\n}"
+						},
+						{
+							"id": "52441606-4ce81a5f-06a0-4d4e-bfd7-c759cb5e92e5",
+							"name": "400 Invalid or Expired Token",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/verify-email",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"verify-email"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Invalid or expired verification token\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Forgot Password",
+					"id": "52441606-a211855f-12a2-46de-8cc7-02573ee4ff8e",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john.doe@example.com\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/forgot-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"forgot-password"
+							]
+						},
+						"description": "**No authentication required.**\n\nSend a password reset email to the given address.\n\n**Always returns 200** — even if the email doesn't exist (prevents user enumeration).\n\nThe email contains a link with a short-lived reset token. Use that token in the `/api/auth/reset-password` endpoint."
+					},
+					"response": [
+						{
+							"id": "52441606-154fdfc9-bb69-49dd-ae07-6b6601153b16",
+							"name": "200 Always Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"john.doe@example.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/forgot-password",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"forgot-password"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"If this email is registered, a reset link has been sent\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Reset Password",
+					"id": "52441606-eda5ad14-5e99-4abd-a7a1-bf1b3f4d1e00",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"reset_token_from_email\",\n  \"new_password\": \"NewSecurePass123!\",\n  \"confirm_new_password\": \"NewSecurePass123!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/reset-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"reset-password"
+							]
+						},
+						"description": "**No authentication required.**\n\nReset the user's password using the token from the reset email.\n\n**Important:** This **invalidates ALL existing JWTs** for the user — all devices are logged out.\n\n**Fields:**\n- `token` — the value from the reset link in email\n- `new_password` — new password\n- `confirm_new_password` — must match `new_password`"
+					},
+					"response": [
+						{
+							"id": "52441606-69941a71-679d-4ae8-a932-c5886927d6fc",
+							"name": "200 Password Reset",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"token\": \"reset_token_from_email\",\n  \"new_password\": \"NewSecurePass123!\",\n  \"confirm_new_password\": \"NewSecurePass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/reset-password",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"reset-password"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Password reset successfully. All sessions have been invalidated.\"\n  }\n}"
+						},
+						{
+							"id": "52441606-62961cf0-e0cd-4736-b30f-c2d44848d469",
+							"name": "400 Token Expired",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"token\": \"expired_token\",\n  \"new_password\": \"NewSecurePass123!\",\n  \"confirm_new_password\": \"NewSecurePass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/reset-password",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"reset-password"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Reset token is invalid or has expired\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Logout",
+					"id": "52441606-24cd38a9-ceb8-4ef8-92ab-b49c2c46bee3",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/logout",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "**Requires authentication.**\n\nLog out the current user.\n\n**What happens:**\n- Clears the `refresh_token` HttpOnly cookie\n- Records `last_logout_at` timestamp (invalidates all JWTs issued before this moment)\n- All active sessions for this user immediately become invalid\n\n**Frontend:** After calling this, clear `access_token` from memory and redirect to login."
+					},
+					"response": [
+						{
+							"id": "52441606-aed67665-33ff-4bcb-961e-0c617f43aa11",
+							"name": "200 Logged Out",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/logout",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"logout"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Logged out successfully\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Refresh Token",
+					"id": "52441606-3c9ed2e5-4eb2-4683-b478-40b06c5a14ac",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "**No Authorization header needed** — relies on the HttpOnly `refresh_token` cookie.\n\nExchange the cookie for a new `access_token` when the current one expires.\n\n**Frontend pattern:**\n1. Make any API call\n2. If it returns 401, call this endpoint (browser sends cookie automatically)\n3. On success, update `{{authToken}}` and retry the original request\n4. If this also returns 401, the session is fully expired — redirect to login\n\n**No request body needed.**"
+					},
+					"response": [
+						{
+							"id": "52441606-293fed42-1d38-4975-b075-aa5056708a4f",
+							"name": "200 New Access Token",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/refresh",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"refresh"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE3NTAwMDAwMDB9.signature_placeholder\",\n    \"token_type\": \"bearer\"\n  }\n}"
+						},
+						{
+							"id": "52441606-b8ecea60-73d3-437d-bcf0-1e2dc95b6478",
+							"name": "401 Refresh Token Expired",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/refresh",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"refresh"
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Refresh token expired or invalid. Please log in again.\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Accept Invite (Check Token)",
+					"id": "52441606-beeb7093-5a16-41c7-9386-91fe23469777",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/accept-invite?token=invite_token_from_email",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"accept-invite"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "invite_token_from_email",
+									"description": "Invitation token from the email link"
+								}
+							]
+						},
+						"description": "**No authentication required.**\n\nValidate an organization invitation token from an invite email.\n\n**Response logic:**\n- `accepted: false` → The invited email is not registered yet. Use `org_name` and `email` to pre-fill the registration form. After registering (optionally with the referral code), the org join is automatic.\n- `accepted: true` → The invited user already had an account and has been added to the org.\n\n**Query param:** `token` (required) — from the invitation link in the email"
+					},
+					"response": [
+						{
+							"id": "52441606-2090d6d4-3162-4d7c-88fa-13b40a34b233",
+							"name": "200 New User (register prompt)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/accept-invite",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"accept-invite"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"accepted\": false,\n    \"org_name\": \"Acme Corp\",\n    \"email\": \"newuser@example.com\"\n  }\n}"
+						},
+						{
+							"id": "52441606-477369f2-34a7-475e-b638-534eec41cef5",
+							"name": "200 Existing User (auto-joined)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/accept-invite",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"accept-invite"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"accepted\": true\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Google Account Link URL",
+					"id": "52441606-0295e90c-964f-4105-8414-00d1e4c4889f",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/google-account/oauth-url",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"google-account",
+								"oauth-url"
+							]
+						},
+						"description": "**Requires authentication.**\n\nGet an OAuth URL to connect an **additional Google account** to the current user's profile (for GA4 / GSC data access — different from the login Google account).\n\n**Frontend flow:**\n1. Call this endpoint\n2. Store `state` in `sessionStorage`\n3. Redirect user to the returned `url`\n4. Google will redirect to the backend callback which links the account\n\n**Returns:** `{ url, state }`"
+					},
+					"response": [
+						{
+							"id": "52441606-59e8cc0c-860e-4f75-8d49-f2c5688d92ac",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/google-account/oauth-url",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"google-account",
+										"oauth-url"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"url\": \"https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/analytics.readonly&state=xyz789\",\n    \"state\": \"xyz789abc123\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Google Account Link Callback",
+					"id": "52441606-563e856c-9366-40be-ac6f-2f1f9fd9bf6a",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/google-account/callback?code=4/0AX4XfWi_example_code&state=xyz789abc123",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"google-account",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "4/0AX4XfWi_example_code",
+									"description": "Authorization code from Google"
+								},
+								{
+									"key": "state",
+									"value": "xyz789abc123",
+									"description": "State value from /google-account/oauth-url"
+								}
+							]
+						},
+						"description": "**No authentication required** (identity carried in the `state` parameter).\n\nOAuth redirect URI for linking a GA4/GSC Google account. Google redirects here after the user grants analytics permissions.\n\n**Note:** This is not called directly by the frontend — it is the OAuth redirect URI registered with Google Cloud Console. The backend links the ConnectedGoogleAccount record and then redirects the user back to the settings page."
+					},
+					"response": [
+						{
+							"id": "52441606-df70efdc-cfdd-4ceb-a8b4-41968cb8210a",
+							"name": "200 Account Connected",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/google-account/callback",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"auth",
+										"google-account",
+										"callback"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Google account connected successfully\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-cfc56ff7-9387-4cf1-b1fc-2775608a4b1c",
+			"description": "Authentication: Google OAuth, email/password login & registration, token refresh, and password management."
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get My Profile",
+					"id": "52441606-388a7fc4-9848-4002-8218-f58de1f77b00",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						},
+						"description": "**Requires authentication.**\n\nFetch the complete profile of the currently logged-in user.\n\n**Key fields returned:**\n- `id`, `email`, `first_name`, `last_name`\n- `role` — determines permissions (`super_admin`, `client_admin`, `client_member`)\n- `org_name` — organization name if the user belongs to one\n- `connected_google_accounts_count` — how many Google accounts are linked\n- `profile_image_url`, `company_logo_url`, `company_name`, `job_role`, etc.\n\n**Call this on app load** to hydrate the auth context / user store."
+					},
+					"response": [
+						{
+							"id": "52441606-ed4e4ee5-b2a4-42e8-a6ec-5371d6746bb6",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"email\": \"john.doe@example.com\",\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"role\": \"client_admin\",\n    \"is_verified\": true,\n    \"company_name\": \"Acme Corp\",\n    \"job_role\": \"CEO\",\n    \"website\": \"https://acme.com\",\n    \"country_code\": \"US\",\n    \"phone_number\": \"+14155552671\",\n    \"org_name\": \"Acme Corp\",\n    \"connected_google_accounts_count\": 1,\n    \"profile_image_url\": \"https://s3.example.com/profiles/john.jpg\",\n    \"company_logo_url\": \"https://s3.example.com/logos/acme.png\",\n    \"created_at\": \"2025-01-15T10:30:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update My Profile",
+					"id": "52441606-fea3d8b6-f7e5-4b0d-a31e-8c34c3b97262",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "name",
+									"value": "John Doe",
+									"type": "text",
+									"description": "Full display name"
+								},
+								{
+									"key": "company_name",
+									"value": "Acme Corp",
+									"type": "text",
+									"description": "Company name"
+								},
+								{
+									"key": "job_role",
+									"value": "CEO",
+									"type": "text",
+									"description": "Job title"
+								},
+								{
+									"key": "website",
+									"value": "https://acme.com",
+									"type": "text",
+									"description": "Website URL"
+								},
+								{
+									"key": "country_code",
+									"value": "US",
+									"type": "text",
+									"description": "ISO 3166-1 alpha-2 country code"
+								},
+								{
+									"key": "phone_number",
+									"value": "+14155552671",
+									"type": "text",
+									"description": "E.164 phone number"
+								},
+								{
+									"key": "logo_source",
+									"value": "url",
+									"type": "text",
+									"description": "'url' to use an image URL, 'upload' to send a file"
+								},
+								{
+									"key": "company_logo",
+									"value": "https://acme.com/logo.png",
+									"type": "text",
+									"description": "Logo URL (when logo_source=url) OR a file (when logo_source=upload)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						},
+						"description": "**Requires authentication.**\n\n**⚠️ Uses `multipart/form-data` — NOT JSON.**\n\nUpdate the current user's profile. All fields are optional; send only what you want to change.\n\n**Company logo options:**\n- `logo_source: 'url'` + `company_logo: '<url string>'` → use an external image URL\n- `logo_source: 'upload'` + `company_logo: <file binary>` → upload a new file\n\n**Tip:** Most HTTP clients automatically set the correct `Content-Type: multipart/form-data` boundary when you use form-data body mode — do not set it manually."
+					},
+					"response": [
+						{
+							"id": "52441606-25f6de3c-ca0e-42df-b880-99fe1918d0b8",
+							"name": "200 Profile Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "name",
+											"value": "John Doe",
+											"type": "text"
+										},
+										{
+											"key": "company_name",
+											"value": "Acme Corp",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"first_name\": \"John\",\n    \"last_name\": \"Doe\",\n    \"company_name\": \"Acme Corp\",\n    \"updated_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Upload Profile Image",
+					"id": "52441606-49e8acfc-5ba0-4831-9cae-f5867a146a1f",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"value": "",
+									"type": "file",
+									"description": "Image file — JPEG, PNG, GIF, or WebP. Max size: 5MB."
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me/profile-image",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me",
+								"profile-image"
+							]
+						},
+						"description": "**Requires authentication.** Uses `multipart/form-data`.\n\nUpload a profile photo for the current user.\n\n**Constraints:**\n- Max file size: **5 MB**\n- Allowed formats: **JPEG, PNG, GIF, WebP**\n\n**Returns** the new `profile_image_url` after successful upload.\n\n**Frontend:** Use a `<input type='file'>`, wrap in `FormData`, POST it. Update the displayed avatar with the returned URL."
+					},
+					"response": [
+						{
+							"id": "52441606-dac6e855-bff9-4fd1-8ae1-28ba795b3146",
+							"name": "200 Image Uploaded",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/profile-image",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"profile-image"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"profile_image_url\": \"https://s3.example.com/profiles/john-new.jpg\"\n  }\n}"
+						},
+						{
+							"id": "52441606-4fd02375-76a7-4ee2-be1a-578dbe25a528",
+							"name": "400 File Too Large",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/profile-image",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"profile-image"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"File size exceeds the 5MB limit\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "List Connected Google Accounts",
+					"id": "52441606-fc4cc1b4-ce11-466b-be00-b06403ab39bb",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/google-accounts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"google-accounts"
+							],
+							"query": [
+								{
+									"key": "include_properties",
+									"value": "false",
+									"description": "Set true to include property name list per account",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires authentication.**\n\nList all Google accounts linked to the current user's profile.\n\n**Query param:** `include_properties` (boolean, default `false`):\n- `false` → returns each account with `properties_count` only\n- `true` → returns each account with a `properties` array of property names\n\n**Use this** on the Google Accounts settings page to show linked accounts and their data coverage."
+					},
+					"response": [
+						{
+							"id": "52441606-0d35e461-d145-4540-bf8f-6c3365dba4b6",
+							"name": "200 Without Properties",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/google-accounts",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"google-accounts"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"email\": \"john@gmail.com\",\n      \"is_primary\": true,\n      \"properties_count\": 2,\n      \"connected_at\": \"2025-01-15T10:30:00Z\"\n    }\n  ]\n}"
+						},
+						{
+							"id": "52441606-21b0eb16-7ac1-4b9b-8d46-7dcfd8acf62b",
+							"name": "200 With Properties (include_properties=true)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/google-accounts",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"google-accounts"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"c3d4e5f6-a7b8-9012-cdef-123456789012\",\n      \"email\": \"john@gmail.com\",\n      \"is_primary\": true,\n      \"properties_count\": 2,\n      \"properties\": [\n        \"My Website\",\n        \"Blog\"\n      ],\n      \"connected_at\": \"2025-01-15T10:30:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Disconnect Google Account",
+					"id": "52441606-a6dc49b9-5073-4577-93c8-e03e4ba0a624",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/google-accounts/c3d4e5f6-a7b8-9012-cdef-123456789012",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"google-accounts",
+								"c3d4e5f6-a7b8-9012-cdef-123456789012"
+							]
+						},
+						"description": "**Requires authentication.**\n\nDisconnect (unlink) a Google account from the user's profile.\n\n**Returns 204 No Content** on success — no response body.\n\n**Constraint:** The primary account cannot be disconnected if it is the only linked account or if it is used for authentication — a 400 error is returned in that case.\n\n**Path param:** `account_id` — UUID of the ConnectedGoogleAccount to remove"
+					},
+					"response": [
+						{
+							"id": "52441606-d66bd2c4-7e44-4732-a286-3cdfc4c71956",
+							"name": "204 No Content",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/google-accounts/c3d4e5f6-a7b8-9012-cdef-123456789012",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"google-accounts",
+										"c3d4e5f6-a7b8-9012-cdef-123456789012"
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Length",
+									"value": "0"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": ""
+						},
+						{
+							"id": "52441606-5e053871-e4e5-4d8d-8fe5-f5df2a8ac803",
+							"name": "400 Cannot Disconnect Primary Account",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/google-accounts/c3d4e5f6-a7b8-9012-cdef-123456789012",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"google-accounts",
+										"c3d4e5f6-a7b8-9012-cdef-123456789012"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Cannot disconnect the primary Google account\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Change Password",
+					"id": "52441606-ad862c59-9b43-47f6-ba00-b17ced682553",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"current_password\": \"OldPass123!\",\n  \"new_password\": \"NewPass456!\",\n  \"confirm_new_password\": \"NewPass456!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me/change-password",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me",
+								"change-password"
+							]
+						},
+						"description": "**Requires authentication.** Only available to **email/password users** (not Google-only accounts).\n\nChange the current user's password.\n\n**Returns** a fresh token pair — update `{{authToken}}` after calling this.\n\n**Fields:**\n- `current_password` — the user's existing password (must be correct)\n- `new_password` — the new password\n- `confirm_new_password` — must match `new_password`"
+					},
+					"response": [
+						{
+							"id": "52441606-f796b8ca-80aa-425c-be33-5573d5445d2b",
+							"name": "200 Password Changed",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"current_password\": \"OldPass123!\",\n  \"new_password\": \"NewPass456!\",\n  \"confirm_new_password\": \"NewPass456!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/change-password",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"change-password"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE3NTAwMDAwMDB9.signature_placeholder\",\n    \"message\": \"Password updated successfully\"\n  }\n}"
+						},
+						{
+							"id": "52441606-5d8fbe59-ecda-4b63-9d3c-5c81f78a209d",
+							"name": "400 Wrong Current Password",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"current_password\": \"wrongpassword\",\n  \"new_password\": \"NewPass456!\",\n  \"confirm_new_password\": \"NewPass456!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/change-password",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"change-password"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Current password is incorrect\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Request Email Change",
+					"id": "52441606-22b7b8d7-3c27-4f19-897b-2e03d280eecd",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"new_email\": \"newemail@example.com\",\n  \"password\": \"CurrentPass123!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me/request-email-change",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me",
+								"request-email-change"
+							]
+						},
+						"description": "**Requires authentication.**\n\nInitiate an email address change. This does **NOT** immediately update the email — it sends a verification link to the **new** address first.\n\n**Flow:**\n1. User submits `new_email` + `password`\n2. Backend sends a verification email to the new address\n3. User clicks the link in that email\n4. `/api/users/me/verify-email-change` finalizes the change\n\n**Fields:**\n- `new_email` — the desired new email\n- `password` — current password (to confirm identity)"
+					},
+					"response": [
+						{
+							"id": "52441606-67af046d-1950-40d9-ab04-fbfd058902df",
+							"name": "200 Verification Email Sent",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"new_email\": \"newemail@example.com\",\n  \"password\": \"CurrentPass123!\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/request-email-change",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"request-email-change"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Verification email sent to newemail@example.com. Change will apply after verification.\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Verify Email Change",
+					"id": "52441606-82474f41-755e-4660-bba3-056ccedf6fe6",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/me/verify-email-change?token=email_change_token_from_email",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me",
+								"verify-email-change"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "email_change_token_from_email",
+									"description": "Email change verification token"
+								}
+							]
+						},
+						"description": "**No authentication required** (token carries identity).\n\nComplete the email change by verifying the token sent to the new email address.\n\nThis is the target URL embedded in the verification email link. After successful verification:\n- The user's email is updated to the new address\n- Any pending email change state is cleared\n\n**Query param:** `token` (required) — from the verification email"
+					},
+					"response": [
+						{
+							"id": "52441606-109fc5c1-c8c4-4017-9c88-fafdd23c742f",
+							"name": "200 Email Changed",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/me/verify-email-change",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"users",
+										"me",
+										"verify-email-change"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Email address updated successfully\",\n    \"new_email\": \"newemail@example.com\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-949dd8d2-7aa2-4004-8c17-27e5f3bdd06b",
+			"description": "User profile: view/update profile, upload photos, manage connected Google accounts, change credentials."
+		},
+		{
+			"name": "Organizations",
+			"item": [
+				{
+					"name": "Check Org Name Availability",
+					"id": "52441606-afe5a78a-bd23-439d-b401-68ce9f49af29",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corp\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/check-name",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"check-name"
+							]
+						},
+						"description": "**Requires authentication.**\n\nCheck if an organization name is available before creating one.\n\n**Frontend usage:** Call this (debounced) as the user types in the org name field to show real-time availability feedback.\n\n**Returns:** `{ available: true/false, name: '...' }`"
+					},
+					"response": [
+						{
+							"id": "52441606-15553dd2-3b76-4c94-bb48-164e6a682747",
+							"name": "200 Name Available",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Acme Corp\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/check-name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"check-name"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"available\": true,\n    \"name\": \"Acme Corp\"\n  }\n}"
+						},
+						{
+							"id": "52441606-c387c8fe-e3fa-4649-8bc6-514b14f902c7",
+							"name": "200 Name Taken",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Google\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/check-name",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"check-name"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"available\": false,\n    \"name\": \"Google\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Submit Join Request",
+					"id": "52441606-df9f9428-f929-4860-99d9-069caba882d0",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"org_id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/join-request",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"join-request"
+							]
+						},
+						"description": "**Requires authentication + verified email.**\n\nSubmit a request to join an existing organization.\n\nThe org admin will see this in their pending requests list and can approve or decline it.\n\n**Field:** `org_id` — UUID of the organization to request to join"
+					},
+					"response": [
+						{
+							"id": "52441606-5502a8cb-9726-4a0c-afdf-79c87335c4e8",
+							"name": "200 Request Submitted",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"org_id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/join-request",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"join-request"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Join request submitted. Awaiting admin approval.\"\n  }\n}"
+						},
+						{
+							"id": "52441606-b594b3ca-83cd-465c-8b06-dbd3f9368632",
+							"name": "400 Already a Member",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"org_id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/join-request",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"join-request"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"You are already a member of this organization\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Organization",
+					"id": "52441606-d7c4d752-8349-456f-9d55-97f3e7d176b4",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corp\",\n  \"industry\": \"Technology\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nCreate a new organization. The requesting user becomes the owner/admin.\n\n**Returns 201** with the created organization data.\n\n**Fields:**\n- `name` (required) — org name, must be unique\n- `industry` (optional) — industry category"
+					},
+					"response": [
+						{
+							"id": "52441606-17548670-2ea3-489c-9297-4789fa71fbb3",
+							"name": "201 Organization Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Acme Corp\",\n  \"industry\": \"Technology\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"name\": \"Acme Corp\",\n    \"industry\": \"Technology\",\n    \"owner_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"created_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get My Organization",
+					"id": "52441606-8318e8e5-d206-4703-bec8-54c84aec6544",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"me"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nFetch the full details of the organization the current user owns or admins.\n\nReturns org details including member count, pending request count, and plan limits."
+					},
+					"response": [
+						{
+							"id": "52441606-d151be73-7810-45f3-ada0-75fb93ee79e6",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/me",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"me"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"name\": \"Acme Corp\",\n    \"industry\": \"Technology\",\n    \"member_count\": 5,\n    \"pending_requests_count\": 2,\n    \"max_members\": 10,\n    \"max_properties\": 10,\n    \"created_at\": \"2025-01-15T10:30:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update My Organization",
+					"id": "52441606-336bef87-f676-4b59-b45f-8b8dbb35fb9f",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corporation\",\n  \"industry\": \"SaaS\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"me"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nUpdate the current user's organization name and/or industry.\n\n**All fields optional** — send only what needs updating.\n\n**Fields:** `name` (must be unique if changed), `industry`"
+					},
+					"response": [
+						{
+							"id": "52441606-5d903ed8-cda6-446d-988b-d7a189e3badb",
+							"name": "200 Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Acme Corporation\",\n  \"industry\": \"SaaS\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/me",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"me"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"name\": \"Acme Corporation\",\n    \"industry\": \"SaaS\",\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "List Org Members",
+					"id": "52441606-244d721b-bf40-4701-b246-ae5c210c5f51",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/me/members",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"me",
+								"members"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nList all **active** members of the current user's organization.\n\nReturns each member's profile, role, join date, and the list of properties they can access."
+					},
+					"response": [
+						{
+							"id": "52441606-50307ae4-1874-4d7b-9b27-cc26d3eacabf",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/me/members",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"me",
+										"members"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"user_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"email\": \"john.doe@example.com\",\n      \"name\": \"John Doe\",\n      \"role\": \"client_admin\",\n      \"joined_at\": \"2025-01-20T09:00:00Z\",\n      \"property_access\": [\n        \"My Website\",\n        \"Blog\"\n      ]\n    },\n    {\n      \"user_id\": \"d4e5f6a7-b8c9-0123-defa-234567890123\",\n      \"email\": \"jane.smith@example.com\",\n      \"name\": \"Jane Smith\",\n      \"role\": \"client_member\",\n      \"joined_at\": \"2025-02-01T10:00:00Z\",\n      \"property_access\": [\n        \"Blog\"\n      ]\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "List Pending Join Requests",
+					"id": "52441606-3d969b03-b383-46cd-a66b-b82686e89cfa",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/me/pending-requests",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"me",
+								"pending-requests"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nGet all users who have requested to join your org but haven't been approved or declined yet.\n\nEach item includes a `membership_id` — use this UUID to approve or decline via the respective endpoints."
+					},
+					"response": [
+						{
+							"id": "52441606-4e81211c-8c3e-4808-8178-165b2d3fb0e4",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/me/pending-requests",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"me",
+										"pending-requests"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"membership_id\": \"f6a7b8c9-d0e1-2345-fabc-456789012345\",\n      \"user_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"email\": \"applicant@example.com\",\n      \"name\": \"Jane Applicant\",\n      \"requested_at\": \"2025-06-01T08:00:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Approve Join Request",
+					"id": "52441606-3e04bc46-cdb4-4a64-83b9-a22a2385d9e1",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/join-requests/f6a7b8c9-d0e1-2345-fabc-456789012345/approve",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"join-requests",
+								"f6a7b8c9-d0e1-2345-fabc-456789012345",
+								"approve"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nApprove a pending organization join request.\n\nAfter approval, the user becomes an active `client_member` in the organization.\n\n**Path param:** `membership_id` — from the pending-requests list"
+					},
+					"response": [
+						{
+							"id": "52441606-04d87367-be00-4e94-95e6-fd0915493340",
+							"name": "200 Approved",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/join-requests/f6a7b8c9-d0e1-2345-fabc-456789012345/approve",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"join-requests",
+										"f6a7b8c9-d0e1-2345-fabc-456789012345",
+										"approve"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Join request approved. User is now a member.\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Decline Join Request",
+					"id": "52441606-2642cbbd-0027-4e15-a788-6b119daf0b37",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/join-requests/f6a7b8c9-d0e1-2345-fabc-456789012345/decline",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"join-requests",
+								"f6a7b8c9-d0e1-2345-fabc-456789012345",
+								"decline"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nDecline a pending organization join request.\n\nThe requesting user will not be added to the organization.\n\n**Path param:** `membership_id` — from the pending-requests list"
+					},
+					"response": [
+						{
+							"id": "52441606-f1a5cd39-14c6-452b-9d9a-a63268c33c69",
+							"name": "200 Declined",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/join-requests/f6a7b8c9-d0e1-2345-fabc-456789012345/decline",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"join-requests",
+										"f6a7b8c9-d0e1-2345-fabc-456789012345",
+										"decline"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Join request declined.\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Remove Member",
+					"id": "52441606-f682e620-b300-4923-b28c-ab9ffa69bb6d",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/members/d4e5f6a7-b8c9-0123-defa-234567890123",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"members",
+								"d4e5f6a7-b8c9-0123-defa-234567890123"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nRemove an active member from the organization.\n\nThe removed user immediately loses access to all organization properties.\n\n**Path param:** `target_user_id` — UUID of the member to remove"
+					},
+					"response": [
+						{
+							"id": "52441606-1087f020-6f57-4830-a1f9-7cbcc5321ffb",
+							"name": "200 Member Removed",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/members/d4e5f6a7-b8c9-0123-defa-234567890123",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"members",
+										"d4e5f6a7-b8c9-0123-defa-234567890123"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Member removed from organization\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Invite Member",
+					"id": "52441606-25423269-a38b-42a6-b180-16bfaffbfb24",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newmember@example.com\",\n  \"full_name\": \"Jane Smith\",\n  \"property_ids\": [\n    \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/members/invite",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"members",
+								"invite"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nInvite someone to join the organization by email.\n\n**What happens:**\n- If a user with this email already exists → added directly as a member\n- Otherwise → an invitation email is sent with a registration link\n\n**Fields:**\n- `email` (required) — email to invite\n- `full_name` (optional) — pre-fills the name on the registration form\n- `property_ids` (required) — UUIDs of properties the new member should access"
+					},
+					"response": [
+						{
+							"id": "52441606-ae911fd7-a78a-4858-b618-52944d9b1679",
+							"name": "200 Invite Sent",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"newmember@example.com\",\n  \"full_name\": \"Jane Smith\",\n  \"property_ids\": [\n    \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n  ]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/members/invite",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"members",
+										"invite"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Invitation sent to newmember@example.com\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Member Property Access",
+					"id": "52441606-d5fe8183-b3fd-4226-b67a-6e12bc114a98",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"property_ids\": [\n    \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/organizations/members/d4e5f6a7-b8c9-0123-defa-234567890123/properties",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"organizations",
+								"members",
+								"d4e5f6a7-b8c9-0123-defa-234567890123",
+								"properties"
+							]
+						},
+						"description": "**Requires authentication.** Role: `client_admin` or above.\n\nReplace **all** property access grants for a team member in one call.\n\n**This is a full replace** — send the complete list of property UUIDs the member should access. Any existing access not in this list will be revoked.\n\n**Fields:**\n- `property_ids` — array of property UUIDs (send `[]` to revoke all access)\n\n**Path param:** `member_user_id` — UUID of the member to update"
+					},
+					"response": [
+						{
+							"id": "52441606-b583f18e-a2e9-4a61-a3ea-3a24c1f61ff8",
+							"name": "200 Access Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"property_ids\": [\n    \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n  ]\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/organizations/members/d4e5f6a7-b8c9-0123-defa-234567890123/properties",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"organizations",
+										"members",
+										"d4e5f6a7-b8c9-0123-defa-234567890123",
+										"properties"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"member_id\": \"d4e5f6a7-b8c9-0123-defa-234567890123\",\n    \"property_ids\": [\n      \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"\n    ],\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-acfe9a63-a019-4b7a-8d9e-ff82762aad0d",
+			"description": "Org management: create orgs, manage members, handle join requests, control member property access."
+		},
+		{
+			"name": "Properties",
+			"item": [
+				{
+					"name": "List Properties",
+					"id": "52441606-5b1d18bd-4c3f-4ff3-8051-f273903e0cf8",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties"
+							],
+							"query": [
+								{
+									"key": "org_id",
+									"value": "",
+									"description": "(super_admin only) Filter properties by organization UUID",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires authentication.**\n\nList all properties the current user can access.\n\n**Role-based behaviour:**\n- `client_admin` → all properties in their organization\n- `client_member` → only properties they have been granted access to\n- `super_admin` → all properties; optionally filter by `org_id`\n\n**Each property includes:** `id`, `name`, `ga4_property_id`, `gsc_site_url`, `property_type`, `org_name`, `google_account_email`, `is_favourite`, `is_active`"
+					},
+					"response": [
+						{
+							"id": "52441606-c91c90a9-458f-4d7a-864e-b5e9795b44a0",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"name\": \"My Website\",\n      \"ga4_property_id\": \"properties/123456789\",\n      \"gsc_site_url\": \"https://example.com/\",\n      \"property_type\": \"website\",\n      \"org_name\": \"Acme Corp\",\n      \"google_account_email\": \"john@gmail.com\",\n      \"is_favourite\": false,\n      \"is_active\": true,\n      \"created_at\": \"2025-01-15T10:30:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Property",
+					"id": "52441606-f5e66ee5-9bda-4fd9-af36-89419ccda22c",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"My Website\",\n  \"ga4_property_id\": \"properties/123456789\",\n  \"gsc_site_url\": \"https://example.com/\",\n  \"property_type\": \"website\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/properties",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties"
+							]
+						},
+						"description": "**Requires authentication.**\n\nCreate a new property to track with GA4 and/or Google Search Console data.\n\n**Fields:**\n- `name` (required) — friendly display name\n- `ga4_property_id` (optional) — GA4 property in format `properties/XXXXXXXXX`. Get valid values from `GET /api/properties/google/properties`.\n- `gsc_site_url` (optional) — GSC site URL (include trailing slash, e.g. `https://example.com/`)\n- `property_type` (optional) — e.g. `'website'` or `'app'`\n\n**Note:** Provide at least one of `ga4_property_id` or `gsc_site_url`.\n\n**Returns 201** with the new property."
+					},
+					"response": [
+						{
+							"id": "52441606-4245bcd7-f15b-49df-b45d-5f0a9c8e60b3",
+							"name": "201 Property Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"My Website\",\n  \"ga4_property_id\": \"properties/123456789\",\n  \"gsc_site_url\": \"https://example.com/\",\n  \"property_type\": \"website\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/properties",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"My Website\",\n    \"ga4_property_id\": \"properties/123456789\",\n    \"gsc_site_url\": \"https://example.com/\",\n    \"property_type\": \"website\",\n    \"is_active\": true,\n    \"created_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Property",
+					"id": "52441606-06586d4e-d4cb-4472-92d8-3aec4ff9f8cd",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+							]
+						},
+						"description": "**Requires authentication.**\n\nGet detailed information about a specific property.\n\n**Path param:** `property_id` — UUID of the property"
+					},
+					"response": [
+						{
+							"id": "52441606-21b789c2-d6ee-4440-8cd6-13f73abba878",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"My Website\",\n    \"ga4_property_id\": \"properties/123456789\",\n    \"gsc_site_url\": \"https://example.com/\",\n    \"property_type\": \"website\",\n    \"is_active\": true,\n    \"org_name\": \"Acme Corp\",\n    \"google_account_email\": \"john@gmail.com\",\n    \"created_at\": \"2025-01-15T10:30:00Z\",\n    \"updated_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Property",
+					"id": "52441606-f21fc8c1-b846-4374-b447-4a634c58db58",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Website Name\",\n  \"is_active\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+							]
+						},
+						"description": "**Requires authentication.** Must be the property owner.\n\nUpdate a property's settings.\n\n**All fields optional** — include only what you want to change:\n- `name` — display name\n- `ga4_property_id` — new GA4 property ID\n- `gsc_site_url` — new GSC site URL\n- `property_type` — type string\n- `is_active` — `true` to enable, `false` to disable\n\n**Path param:** `property_id` — UUID of the property"
+					},
+					"response": [
+						{
+							"id": "52441606-741fa4a9-dbb0-44e4-b31f-bfdb720a07e7",
+							"name": "200 Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Updated Website Name\",\n  \"is_active\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"name\": \"Updated Website Name\",\n    \"is_active\": true,\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Property",
+					"id": "52441606-35eb9667-576a-4c8e-9c2c-4e5e20a56b6b",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+							]
+						},
+						"description": "**Requires authentication.** Must be the property owner.\n\nPermanently delete a property and all associated analytics data.\n\n**Returns 204 No Content.** This action is irreversible.\n\n**Path param:** `property_id` — UUID of the property"
+					},
+					"response": [
+						{
+							"id": "52441606-080d5074-191e-47ee-81c9-ce2e3b31c9a9",
+							"name": "204 No Content",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Length",
+									"value": "0"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "List Google Analytics Properties",
+					"id": "52441606-03e0a7ef-ab5c-4c76-b2d1-3c86fbb697d3",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/google/properties",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"google",
+								"properties"
+							]
+						},
+						"description": "**Requires authentication.**\n\nFetch available GA4 properties from the user's connected Google account(s) via the Google Analytics Admin API.\n\n**Use this** to populate a property selector when creating a new property — the user can pick which GA4 property to connect.\n\n**Returns** a list with `property_id` (e.g. `properties/123456789`) and `display_name` per account."
+					},
+					"response": [
+						{
+							"id": "52441606-65afceef-eca4-42a9-acc4-0fc5555484c6",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/google/properties",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"google",
+										"properties"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"property_id\": \"properties/123456789\",\n      \"display_name\": \"My Website (GA4)\",\n      \"account_email\": \"john@gmail.com\"\n    },\n    {\n      \"property_id\": \"properties/987654321\",\n      \"display_name\": \"Blog (GA4)\",\n      \"account_email\": \"john@gmail.com\"\n    }\n  ]\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-b103a5a9-621c-4ed6-8355-27658ffd0344",
+			"description": "Property management: connect GA4/GSC properties, list, update, and delete tracked sites."
+		},
+		{
+			"name": "Sync & Dashboard",
+			"item": [
+				{
+					"name": "Get Dashboard Data",
+					"id": "52441606-5123af55-af4d-49e9-ab8b-8c27242101bd",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/dashboard",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"dashboard"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "2025-05-01",
+									"description": "Period start date (YYYY-MM-DD). Defaults to first day of current month.",
+									"disabled": true
+								},
+								{
+									"key": "end_date",
+									"value": "2025-05-31",
+									"description": "Period end date (YYYY-MM-DD). Defaults to yesterday.",
+									"disabled": true
+								},
+								{
+									"key": "compare_start_date",
+									"value": "",
+									"description": "Custom comparison start (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "compare_end_date",
+									"value": "",
+									"description": "Custom comparison end (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "force_sync",
+									"value": "false",
+									"description": "true to bypass cache and pull fresh data from Google",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nFetch combined GA4 + GSC analytics dashboard data for the requested date range.\n\n**Date range logic:**\n- No dates provided → defaults to the **current calendar month**\n- `start_date` + `end_date` → explicit reporting range\n\n**Comparison period:**\n- Auto-calculated as the same duration one period prior (default)\n- Pass `compare_start_date` + `compare_end_date` for a custom comparison range (disables caching for this request)\n\n**`force_sync=true`** bypasses the cache and fetches fresh data directly from Google APIs.\n\n**Date format:** `YYYY-MM-DD`\n\n**Returns:** Sessions, users, pageviews, bounce rate, top pages, keyword rankings, and comparison deltas."
+					},
+					"response": [
+						{
+							"id": "52441606-a2b692e9-bdf8-4238-a5d9-308fe6c441f8",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/dashboard",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"dashboard"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"property_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"period\": {\n      \"start\": \"2025-05-01\",\n      \"end\": \"2025-05-31\"\n    },\n    \"compare_period\": {\n      \"start\": \"2025-04-01\",\n      \"end\": \"2025-04-30\"\n    },\n    \"metrics\": {\n      \"sessions\": {\n        \"current\": 12450,\n        \"previous\": 10200,\n        \"change_pct\": 22.1\n      },\n      \"users\": {\n        \"current\": 8930,\n        \"previous\": 7500,\n        \"change_pct\": 19.1\n      },\n      \"pageviews\": {\n        \"current\": 34200,\n        \"previous\": 29800,\n        \"change_pct\": 14.8\n      },\n      \"bounce_rate\": {\n        \"current\": 42.3,\n        \"previous\": 45.1,\n        \"change_pct\": -6.2\n      },\n      \"avg_session_duration_sec\": {\n        \"current\": 185,\n        \"previous\": 170,\n        \"change_pct\": 8.8\n      }\n    },\n    \"top_pages\": [\n      {\n        \"page\": \"/\",\n        \"sessions\": 3200,\n        \"pageviews\": 5100\n      },\n      {\n        \"page\": \"/blog\",\n        \"sessions\": 1800,\n        \"pageviews\": 2900\n      }\n    ],\n    \"top_keywords\": [\n      {\n        \"keyword\": \"acme corp\",\n        \"clicks\": 450,\n        \"impressions\": 1200,\n        \"position\": 2.1\n      },\n      {\n        \"keyword\": \"acme services\",\n        \"clicks\": 230,\n        \"impressions\": 800,\n        \"position\": 4.5\n      }\n    ],\n    \"last_synced_at\": \"2025-05-31T23:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get AI Insights",
+					"id": "52441606-8d7af1cf-0f48-4297-9cb9-abdbee997c4d",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/insights",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"insights"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "",
+									"description": "Period start (YYYY-MM-DD). Omit for latest available.",
+									"disabled": true
+								},
+								{
+									"key": "end_date",
+									"value": "",
+									"description": "Period end (YYYY-MM-DD). Omit for latest available.",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nFetch AI-generated insights and recommendations for the property.\n\n**Date range logic:**\n- No dates → returns the **latest available** analysis\n- `start_date` + `end_date` → request analysis for a specific period\n\n**Returns** structured insights: trends, anomalies, opportunities, and action recommendations."
+					},
+					"response": [
+						{
+							"id": "52441606-930e5951-0a22-4efb-9df5-0d631aee055f",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/insights",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"insights"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"property_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"generated_at\": \"2025-05-31T23:00:00Z\",\n    \"period\": {\n      \"start\": \"2025-05-01\",\n      \"end\": \"2025-05-31\"\n    },\n    \"insights\": [\n      {\n        \"type\": \"positive_trend\",\n        \"title\": \"Organic traffic up 22%\",\n        \"description\": \"Sessions grew significantly, driven by improved rankings for 'acme services'.\",\n        \"metric\": \"sessions\",\n        \"change_pct\": 22.1\n      },\n      {\n        \"type\": \"opportunity\",\n        \"title\": \"High-impression keywords not clicking\",\n        \"description\": \"5 keywords have >500 impressions but <2% CTR. Consider updating meta titles.\",\n        \"action\": \"Review meta titles for /services and /pricing\"\n      }\n    ]\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Generate PDF Report",
+					"id": "52441606-a8d53f7a-c13c-49a7-91d3-ce0394d62e0d",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/report/pdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"report",
+								"pdf"
+							],
+							"query": [
+								{
+									"key": "start_date",
+									"value": "",
+									"description": "Report period start (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "end_date",
+									"value": "",
+									"description": "Report period end (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nGenerate and download a PDF analytics report.\n\n**Date range logic:**\n- No dates → uses the latest cached/processed month\n- `start_date` + `end_date` → generate for specified period\n\n**Response:** `Content-Type: application/pdf` (binary stream — not JSON).\n\n**Frontend download pattern:**\n```js\nconst res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });\nconst blob = await res.blob();\nconst link = document.createElement('a');\nlink.href = URL.createObjectURL(blob);\nlink.download = 'report.pdf';\nlink.click();\n```"
+					},
+					"response": [
+						{
+							"id": "52441606-de15334b-7c3e-40ee-95d6-7da7d0c7462b",
+							"name": "200 PDF Binary",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/report/pdf",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"report",
+										"pdf"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/pdf"
+								},
+								{
+									"key": "Content-Disposition",
+									"value": "attachment; filename=\"report-2025-05.pdf\""
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Get Notes",
+					"id": "52441606-0928e9a4-4320-4532-8a14-5da36e311f03",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/notes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"notes"
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nFetch the custom notes saved for this property.\n\nNotes are free-text annotations that appear alongside the dashboard report. Useful for recording context like campaign launches, site changes, or anomaly explanations."
+					},
+					"response": [
+						{
+							"id": "52441606-f3267ffb-5793-4c5d-b898-4648fd5d4f67",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/notes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"notes"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"property_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"custom_notes\": \"Traffic spike on May 15 was due to the ProductHunt launch. Bounce rate improvement correlates with the homepage redesign shipped May 3rd.\",\n    \"updated_at\": \"2025-05-20T09:30:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Save Notes",
+					"id": "52441606-b8629cf2-a848-4ee0-87cb-ce47e0e13e87",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"custom_notes\": \"Traffic spike on May 15 was due to the ProductHunt launch.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/notes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"notes"
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nSave or update custom notes for this property.\n\n**Full replace** — the entire `custom_notes` field is overwritten. Send an empty string `\"\"` to clear existing notes.\n\n**Field:** `custom_notes` (string)"
+					},
+					"response": [
+						{
+							"id": "52441606-2e042957-6c75-4f4e-9332-d82ff597d8d6",
+							"name": "200 Notes Saved",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"custom_notes\": \"Traffic spike on May 15 was due to the ProductHunt launch.\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/notes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"notes"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"property_id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n    \"custom_notes\": \"Traffic spike on May 15 was due to the ProductHunt launch.\",\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Generate Share Link",
+					"id": "52441606-66921a44-0171-4dcf-b269-242f9e20648c",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/share?expires_in_days=30",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"share"
+							],
+							"query": [
+								{
+									"key": "expires_in_days",
+									"value": "30",
+									"description": "Link validity in days (1–365, default 30)"
+								}
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nGenerate a public shareable link to the property's analytics report. The link requires no login — anyone with it can view the report.\n\n**Query param:**\n- `expires_in_days` (default `30`, min `1`, max `365`) — how long the link stays active\n\n**Returns** the full `share_url` and the `share_token` (which forms the URL path), plus the `expires_at` timestamp."
+					},
+					"response": [
+						{
+							"id": "52441606-d3218fcb-cb1c-44c4-8566-7d2ea34b16ab",
+							"name": "200 Share Link Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/share",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"share"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"share_url\": \"https://app.zensor.io/public/reports/abc123xyz456\",\n    \"share_token\": \"abc123xyz456\",\n    \"expires_at\": \"2025-07-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Revoke Share Link",
+					"id": "52441606-9fc4a784-755e-4ca9-b21a-b05e1558cc09",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/share",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"properties",
+								"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+								"share"
+							]
+						},
+						"description": "**Requires authentication.** Must be property owner or granted member access.\n\nRevoke the existing public share link for this property.\n\nAfter revoking, anyone visiting the old link receives a 404. A new link can be generated at any time via `POST /{property_id}/share`."
+					},
+					"response": [
+						{
+							"id": "52441606-1416032a-14e7-49c8-8f5f-ab9536ece13a",
+							"name": "200 Link Revoked",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/properties/a1b2c3d4-e5f6-7890-abcd-ef1234567890/share",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"properties",
+										"a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+										"share"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"Share link revoked successfully\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-e511158d-71f5-4328-93a8-f725a5180f3c",
+			"description": "Analytics: dashboard metrics, AI insights, PDF reports, custom notes, and share links."
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "List All Users",
+					"id": "52441606-ff1ceb2c-d777-4de2-95b9-899715db2d1f",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search by name or email",
+									"disabled": true
+								},
+								{
+									"key": "role",
+									"value": "",
+									"description": "Filter by role: super_admin | client_admin | client_member",
+									"disabled": true
+								},
+								{
+									"key": "is_suspended",
+									"value": "",
+									"description": "Filter by suspension status: true or false",
+									"disabled": true
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number",
+									"disabled": true
+								},
+								{
+									"key": "page_size",
+									"value": "20",
+									"description": "Results per page",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet a paginated list of all users in the system.\n\n**Query params (all optional):**\n- `search` — filter by name or email (partial match)\n- `role` — filter to a specific role\n- `is_suspended` — `true` or `false` to filter by suspension status\n- `page` — page number (default `1`)\n- `page_size` — users per page (default `20`)"
+					},
+					"response": [
+						{
+							"id": "52441606-6b3cacf5-04a2-4e4f-b1ab-da2035a20e53",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"users\": [\n      {\n        \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n        \"email\": \"john.doe@example.com\",\n        \"name\": \"John Doe\",\n        \"role\": \"client_admin\",\n        \"is_suspended\": false,\n        \"is_verified\": true,\n        \"org_name\": \"Acme Corp\",\n        \"created_at\": \"2025-01-15T10:30:00Z\"\n      }\n    ],\n    \"total\": 42,\n    \"page\": 1,\n    \"page_size\": 20\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create User (Admin)",
+					"id": "52441606-e61eef85-5209-4bd9-9ee8-2c899993faaf",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newuser@example.com\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"role\": \"client_admin\",\n  \"password\": \"TempPass123!\",\n  \"org_id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nCreate a new user with any role (including `super_admin`).\n\n**Fields:**\n- `email` (required)\n- `first_name`, `last_name` (optional)\n- `role` (optional, default `client_admin`)\n- `password` (optional — if absent, user can only log in via Google OAuth or forgot-password)\n- `org_id` (optional) — assign directly to an organization"
+					},
+					"response": [
+						{
+							"id": "52441606-794fdc3f-0364-47cb-b463-3e4f9a37d59d",
+							"name": "201 User Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"newuser@example.com\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"role\": \"client_admin\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1e2d3c4-b5a6-7890-fedc-ba9876543210\",\n    \"email\": \"newuser@example.com\",\n    \"first_name\": \"Jane\",\n    \"last_name\": \"Smith\",\n    \"role\": \"client_admin\",\n    \"created_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get User Details (Admin)",
+					"id": "52441606-864f9d7d-561b-45f5-a854-69134b4ac3e1",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users",
+								"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet full details for a specific user including:\n- Profile + organization membership\n- Properties they own or have access to\n- Login history\n\n**Path param:** `user_id` — UUID of the user"
+					},
+					"response": [
+						{
+							"id": "52441606-265b6a24-14ad-42a2-bc7a-24f979857835",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1e2d3c4-b5a6-7890-fedc-ba9876543210\",\n    \"email\": \"jane.smith@example.com\",\n    \"first_name\": \"Jane\",\n    \"last_name\": \"Smith\",\n    \"role\": \"client_admin\",\n    \"is_suspended\": false,\n    \"is_verified\": true,\n    \"org_name\": \"Acme Corp\",\n    \"properties\": [\n      {\n        \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n        \"name\": \"My Website\"\n      }\n    ],\n    \"login_history\": [\n      {\n        \"timestamp\": \"2025-05-31T09:15:00Z\",\n        \"ip\": \"192.168.1.1\",\n        \"method\": \"email\"\n      }\n    ],\n    \"created_at\": \"2025-01-15T10:30:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update User (Admin)",
+					"id": "52441606-e2099303-b04e-4237-8314-1aa8dd15c67c",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Smith\",\n  \"email\": \"jane.new@example.com\",\n  \"role\": \"client_member\",\n  \"org_id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users",
+								"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nUpdate a user's profile, role, or organization.\n\n**All fields optional:**\n- `first_name`, `last_name` — update name\n- `email` — change email (no verification step when done by admin)\n- `role` — change the user's role\n- `org_id` — move to a different org (`null` to remove from org)\n\n**Path param:** `user_id`"
+					},
+					"response": [
+						{
+							"id": "52441606-744ed269-933f-4c56-b3a9-185445605534",
+							"name": "200 Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"role\": \"client_member\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"f1e2d3c4-b5a6-7890-fedc-ba9876543210\",\n    \"email\": \"jane.smith@example.com\",\n    \"role\": \"client_member\",\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Suspend User",
+					"id": "52441606-bdbb7e83-0aed-42e1-8780-d5ef951ca4a2",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210/suspend",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users",
+								"f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+								"suspend"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nSuspend a user account. A suspended user cannot log in or access any API endpoint.\n\nExisting sessions are immediately invalidated.\n\n**Path param:** `user_id`"
+					},
+					"response": [
+						{
+							"id": "52441606-314e2dbb-4491-4319-83bf-c3d1ad9d1a0f",
+							"name": "200 User Suspended",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210/suspend",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+										"suspend"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"User suspended successfully\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Activate User",
+					"id": "52441606-c87d9dfd-0ecb-48e7-85c8-b471858b4668",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210/activate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users",
+								"f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+								"activate"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nReactivate a previously suspended user account. The user can log in again immediately.\n\n**Path param:** `user_id`"
+					},
+					"response": [
+						{
+							"id": "52441606-c6cfba4a-4142-40f7-8f22-32ae8512de7d",
+							"name": "200 User Activated",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/users/f1e2d3c4-b5a6-7890-fedc-ba9876543210/activate",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"users",
+										"f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+										"activate"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"message\": \"User activated successfully\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "List Organizations (Admin)",
+					"id": "52441606-bc1b6eb3-6d74-4a51-8921-bd04cf7846c9",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/organizations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"organizations"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet a list of all organizations in the system with member counts and property counts."
+					},
+					"response": [
+						{
+							"id": "52441606-c2cf1f98-c50f-4372-a951-185bf7878208",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/organizations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"organizations"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n      \"name\": \"Acme Corp\",\n      \"industry\": \"Technology\",\n      \"member_count\": 5,\n      \"property_count\": 3,\n      \"created_at\": \"2025-01-15T10:30:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Organization (Admin)",
+					"id": "52441606-f738be1d-c25a-446f-beaa-74382c8b8a3c",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/organizations/b2c3d4e5-f6a7-8901-bcde-f12345678901",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"organizations",
+								"b2c3d4e5-f6a7-8901-bcde-f12345678901"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet full details for a specific organization including members, properties, and plan limits.\n\n**Path param:** `org_id` — UUID of the organization"
+					},
+					"response": [
+						{
+							"id": "52441606-fe9c0f43-937b-4fc2-be5d-c963cf3c47be",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/organizations/b2c3d4e5-f6a7-8901-bcde-f12345678901",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"organizations",
+										"b2c3d4e5-f6a7-8901-bcde-f12345678901"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\",\n    \"name\": \"Acme Corp\",\n    \"industry\": \"Technology\",\n    \"owner_email\": \"john.doe@example.com\",\n    \"member_count\": 5,\n    \"max_members\": 10,\n    \"property_count\": 3,\n    \"max_properties\": 10,\n    \"created_at\": \"2025-01-15T10:30:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "List Roles",
+					"id": "52441606-0ccbc364-8dba-46c5-8fc8-f3809c4d5663",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/roles",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"roles"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet all available user roles in the system.\n\n**Use this** to populate role dropdowns in the admin UI."
+					},
+					"response": [
+						{
+							"id": "52441606-7eff4a05-1392-480f-9055-a3ca1370dc5d",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/roles",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"roles"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"name\": \"super_admin\",\n      \"label\": \"Super Admin\"\n    },\n    {\n      \"name\": \"client_admin\",\n      \"label\": \"Client Admin\"\n    },\n    {\n      \"name\": \"client_member\",\n      \"label\": \"Client Member\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Audit Logs",
+					"id": "52441606-9ceb9fda-2915-4c05-a933-fe81ce26ac60",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/audit-logs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"audit-logs"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nRetrieve the system audit log — a chronological record of significant actions (logins, role changes, suspensions, org modifications, etc.)."
+					},
+					"response": [
+						{
+							"id": "52441606-41396354-e4e4-412f-ab70-c820c53caf7a",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/audit-logs",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"audit-logs"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"27d588ec-d399-4e6f-ad3d-582aa5fff26d\",\n      \"action\": \"user.suspend\",\n      \"actor_email\": \"admin@zensor.io\",\n      \"target_email\": \"jane.smith@example.com\",\n      \"details\": {\n        \"reason\": \"Policy violation\"\n      },\n      \"timestamp\": \"2025-05-30T14:22:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "List Referral Codes",
+					"id": "52441606-11b57e56-68e3-44ef-83cb-5ec279e98aff",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/referral-codes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"referral-codes"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet all referral/promo codes with their usage statistics."
+					},
+					"response": [
+						{
+							"id": "52441606-218c4971-5c4c-46d0-bdf8-47ab8389b63f",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/referral-codes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"referral-codes"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"a9b8c7d6-e5f4-3210-9876-fedcba012345\",\n      \"code\": \"ACME2024\",\n      \"max_properties\": 10,\n      \"duration_months\": 12,\n      \"max_members\": 5,\n      \"max_redemptions\": 100,\n      \"redemptions_used\": 23,\n      \"is_active\": true,\n      \"expiry_date\": \"2025-12-31\",\n      \"created_at\": \"2025-01-01T00:00:00Z\"\n    }\n  ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Referral Code",
+					"id": "52441606-70d329a8-b46f-4e92-9688-ed730db84e20",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"STARTUP2025\",\n  \"max_properties\": 5,\n  \"duration_months\": 6,\n  \"max_members\": 3,\n  \"max_redemptions\": 50,\n  \"expiry_date\": \"2025-12-31\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/referral-codes",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"referral-codes"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nCreate a referral/promo code that organizations can redeem at registration to get specific plan limits.\n\n**Fields:**\n- `code` (required) — unique code string (e.g. `STARTUP2025`)\n- `max_properties` (optional) — property limit for redeemers\n- `duration_months` (optional) — how long promo limits apply\n- `max_members` (required) — org member limit for redeemers\n- `max_redemptions` (required) — max times the code can be used\n- `expiry_date` (optional) — date after which the code is rejected"
+					},
+					"response": [
+						{
+							"id": "52441606-f5479e8c-41a0-4361-ae07-b5f7fa5ee98a",
+							"name": "201 Code Created",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"code\": \"STARTUP2025\",\n  \"max_members\": 3,\n  \"max_redemptions\": 50\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/referral-codes",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"referral-codes"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"e5f6a7b8-c9d0-1234-efab-345678901234\",\n    \"code\": \"STARTUP2025\",\n    \"max_members\": 3,\n    \"max_redemptions\": 50,\n    \"redemptions_used\": 0,\n    \"is_active\": true,\n    \"created_at\": \"2025-06-01T12:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Referral Code",
+					"id": "52441606-3ff8a443-a293-47b4-a113-aa6f78801b92",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"max_redemptions\": 200,\n  \"is_active\": true,\n  \"expiry_date\": \"2026-06-30\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/referral-codes/a9b8c7d6-e5f4-3210-9876-fedcba012345",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"referral-codes",
+								"a9b8c7d6-e5f4-3210-9876-fedcba012345"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nUpdate an existing referral code's settings.\n\n**All fields optional:**\n- `max_properties`, `duration_months`, `max_members`, `max_redemptions` — adjust limits\n- `expiry_date` — change or set expiry\n- `is_active` — enable/disable without deleting\n\n**Path param:** `code_id` — UUID of the referral code"
+					},
+					"response": [
+						{
+							"id": "52441606-4801ab52-f073-42fc-a93c-755ff65aa9ce",
+							"name": "200 Updated",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"is_active\": false\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/referral-codes/a9b8c7d6-e5f4-3210-9876-fedcba012345",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"referral-codes",
+										"a9b8c7d6-e5f4-3210-9876-fedcba012345"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"a9b8c7d6-e5f4-3210-9876-fedcba012345\",\n    \"code\": \"ACME2024\",\n    \"is_active\": false,\n    \"updated_at\": \"2025-06-01T14:00:00Z\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Impersonate User",
+					"id": "52441606-cdca7134-f777-4e0a-89b4-1e169fb71716",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Investigating reported issue with dashboard data\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/impersonate/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"impersonate",
+								"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGenerate a short-lived **impersonation JWT** to act as the target user.\n\n**What it returns:** An `impersonation_token` — use this as the Bearer token to make API calls as that user. This is NOT a regular access token.\n\n**To end:** Call `POST /api/admin/impersonate/end` with the **impersonation token** as Bearer.\n\n**Field:** `reason` (optional) — recorded in the impersonation audit log for accountability.\n\n**Path param:** `target_user_id` — UUID of the user to impersonate"
+					},
+					"response": [
+						{
+							"id": "52441606-ffb150eb-410e-46ec-a0d4-b44d94efe43c",
+							"name": "200 Impersonation Token",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"reason\": \"Investigating reported issue\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/impersonate/f1e2d3c4-b5a6-7890-fedc-ba9876543210",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"impersonate",
+										"f1e2d3c4-b5a6-7890-fedc-ba9876543210"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"impersonation_token\": \"eyJhbGciOiJIUzI1NiJ9.impersonation.token\",\n    \"target_user\": {\n      \"id\": \"f1e2d3c4-b5a6-7890-fedc-ba9876543210\",\n      \"email\": \"jane.smith@example.com\",\n      \"name\": \"Jane Smith\"\n    },\n    \"expires_in\": 3600,\n    \"reason\": \"Investigating reported issue\"\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "End Impersonation",
+					"id": "52441606-65327a8d-daaa-41fc-8960-8b3181e9ebfa",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{impersonationToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/impersonate/end",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"impersonate",
+								"end"
+							]
+						},
+						"description": "**Requires the impersonation JWT** (NOT your normal admin Bearer token).\n\nEnd an active impersonation session and receive back your normal admin tokens.\n\n**How to use:**\n1. Get an impersonation token from `POST /api/admin/impersonate/{user_id}`\n2. Use it as Bearer to make calls as the target user\n3. When done, call this endpoint with the **impersonation token** as Bearer\n4. Update `{{authToken}}` to the returned `access_token` to resume your admin session\n\n**Tip:** Store the impersonation token in a separate `{{impersonationToken}}` variable to avoid overwriting your admin token."
+					},
+					"response": [
+						{
+							"id": "52441606-adc46881-f71b-4c57-9c27-7dc54b0d57a3",
+							"name": "200 Back to Admin Session",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{impersonationToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/impersonate/end",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"impersonate",
+										"end"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJleHAiOjE3NTAwMDAwMDB9.signature_placeholder\",\n    \"user\": {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"email\": \"admin@zensor.io\",\n      \"role\": \"super_admin\"\n    }\n  }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Impersonation Logs",
+					"id": "52441606-a7ddb407-a1a0-4fed-88ed-ebb36e867493",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{authToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/admin/impersonation-logs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"impersonation-logs"
+							]
+						},
+						"description": "**Requires `super_admin` role.**\n\nGet an audit trail of all impersonation sessions — who impersonated whom, when, for what reason, and for how long."
+					},
+					"response": [
+						{
+							"id": "52441606-0f5f5e97-38ee-4a98-b299-3ac7551b1c23",
+							"name": "200 Success",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{authToken}}",
+										"type": "text"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/admin/impersonation-logs",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"admin",
+										"impersonation-logs"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"e2d67d80-06cc-44f6-bb9c-afc7ba0860bd\",\n      \"admin_email\": \"admin@zensor.io\",\n      \"target_email\": \"jane.smith@example.com\",\n      \"reason\": \"Investigating reported issue\",\n      \"started_at\": \"2025-05-31T14:00:00Z\",\n      \"ended_at\": \"2025-05-31T14:25:00Z\",\n      \"duration_seconds\": 1500\n    }\n  ]\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-dd9a97ba-6ecd-4b46-b73a-e4a89433841f",
+			"description": "Super admin: user management, org admin, referral codes, audit logs, and impersonation."
+		},
+		{
+			"name": "Public",
+			"item": [
+				{
+					"name": "Get Public Report",
+					"id": "52441606-da8063a9-8e02-4df2-8cbb-8b48ba60ea06",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/public/reports/abc123xyz456",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"public",
+								"reports",
+								"abc123xyz456"
+							]
+						},
+						"description": "**No authentication required.** Accessible to anyone with the share link.\n\nFetch the public analytics dashboard for a property using its share token.\n\n**Embed this in a client-facing page** to show a read-only analytics report. The share token is the last path segment of the URL generated by `POST /{property_id}/share`.\n\n**Path param:** `share_token` — the token from the share URL\n\nReturns a subset of the dashboard data (no sensitive user info)."
+					},
+					"response": [
+						{
+							"id": "52441606-59cffaba-9eea-42bd-bd6d-6dd60905da7e",
+							"name": "200 Public Report",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/public/reports/abc123xyz456",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"public",
+										"reports",
+										"abc123xyz456"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"success\": true,\n  \"data\": {\n    \"property_name\": \"My Website\",\n    \"period\": {\n      \"start\": \"2025-05-01\",\n      \"end\": \"2025-05-31\"\n    },\n    \"metrics\": {\n      \"sessions\": 12450,\n      \"users\": 8930,\n      \"pageviews\": 34200,\n      \"bounce_rate\": 42.3\n    },\n    \"top_pages\": [\n      {\n        \"page\": \"/\",\n        \"sessions\": 3200\n      },\n      {\n        \"page\": \"/blog\",\n        \"sessions\": 1800\n      }\n    ],\n    \"expires_at\": \"2025-07-01T12:00:00Z\"\n  }\n}"
+						},
+						{
+							"id": "52441606-1160f88a-87ed-48dd-b0df-82566093a810",
+							"name": "404 Expired or Invalid",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/public/reports/invalidtoken",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"public",
+										"reports",
+										"invalidtoken"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json; charset=utf-8"
+								}
+							],
+							"cookie": [],
+							"responseTime": null,
+							"body": "{\n  \"error\": {\n    \"message\": \"Share link not found or has expired\"\n  }\n}"
+						}
+					]
+				}
+			],
+			"id": "52441606-66395734-10e6-42a4-87d6-9358745bac84",
+			"description": "Public endpoints: view shared analytics reports without authentication."
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "authToken",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
