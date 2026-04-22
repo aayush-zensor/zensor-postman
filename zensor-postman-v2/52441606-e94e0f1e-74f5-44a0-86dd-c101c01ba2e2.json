@@ -5223,7 +5223,7 @@
 							},
 							"status": "OK",
 							"code": 200,
-							"_postman_previewlanguage": null,
+							"_postman_previewlanguage": "json",
 							"header": [
 								{
 									"key": "date",
@@ -5238,8 +5238,10 @@
 									"value": "237"
 								},
 								{
-									"key": "content-type",
-									"value": "application/json"
+									"key": "Content-Type",
+									"value": "application/json",
+									"description": "",
+									"type": "text"
 								}
 							],
 							"cookie": [],
